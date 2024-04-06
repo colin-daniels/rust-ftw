@@ -122,9 +122,6 @@ impl Data {
 
 impl Input {
     pub fn do_magic(&mut self) {
-        // not actually magic, just something we need to do
-        // self.replace_invalid_query_string_chars();
-
         // FTW does some things automatically if stop_magic == false, so we do them here.
         if !self.stop_magic {
             // replace "\\r\\n" with actual CRLFs
@@ -144,30 +141,6 @@ impl Input {
             }
         }
     }
-
-    // fn replace_invalid_query_string_chars(&mut self) {
-    //     // replace any unescaped characters in the query string
-    //     let mut uri_new = BytesMut::with_capacity(self.uri.len() * 3);
-    //     let mut past_query_string = false;
-
-    //     for &b in self.uri.as_bytes().iter() {
-    //         if !past_query_string {
-    //             past_query_string = b == b'?';
-    //             uri_new.put_u8(b);
-    //         } else {
-    //             match b {
-    //                 b' ' => uri_new.put_slice(b"%20"),
-    //                 b'"' => uri_new.put_slice(b"%22"),
-    //                 b'<' => uri_new.put_slice(b"%3C"),
-    //                 b'>' => uri_new.put_slice(b"%3E"),
-    //                 b'?' => uri_new.put_slice(b"%3F"),
-    //                 _ => uri_new.put_u8(b),
-    //             }
-    //         }
-    //     }
-
-    //     self.uri = String::from_utf8(uri_new.to_vec()).unwrap();
-    // }
 
     pub fn uri(&self) -> Result<Uri, http::Error> {
         Uri::builder()
@@ -194,4 +167,31 @@ impl Input {
             builder.body(Default::default())
         }
     }
+}
+
+/// Utility to replace invalid URI characters. TBD whether this
+/// should actually be done or if we should add a separate way of
+/// sending "invalid" requests.
+#[allow(dead_code)]
+fn replace_invalid_query_string_chars(uri: &str) -> String {
+    // replace any unescaped characters in the query string
+    let mut uri_new = String::with_capacity(uri.len() * 3);
+    let mut past_query_string = false;
+
+    for &b in uri.as_bytes().iter() {
+        if !past_query_string {
+            past_query_string = b == b'?';
+            uri_new.push(char::from(b));
+        } else {
+            match b {
+                b' ' => uri_new.push_str("%20"),
+                b'"' => uri_new.push_str("%22"),
+                b'<' => uri_new.push_str("%3C"),
+                b'>' => uri_new.push_str("%3E"),
+                b'?' => uri_new.push_str("%3F"),
+                _ => uri_new.push(char::from(b)),
+            }
+        }
+    }
+    uri_new
 }
