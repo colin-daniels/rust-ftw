@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
-use rust_ftw::file::File;
+use http::Request;
+use rust_ftw::file::{input::Input, File};
 
 pub fn tests_for_crs(version: &str) -> impl Iterator<Item = PathBuf> {
     glob::glob(&format!(
@@ -16,4 +17,22 @@ pub fn assert_tests_parse(version: &str) {
             panic!("failed to parse {:?}: {}", path, e);
         }
     }
+}
+
+pub fn requests_for_crs(version: &str) -> Vec<Result<Request<Vec<u8>>, (Input, http::Error)>> {
+    tests_for_crs(version)
+        .flat_map(|path| {
+            let file = File::from_path(&path).unwrap();
+            file.inputs()
+                .map(|i| i.request().map_err(|e| (i.clone(), e)))
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
+pub fn unparsable_requests_for_crs(version: &str) -> Vec<(Input, http::Error)> {
+    requests_for_crs(version)
+        .into_iter()
+        .filter_map(|r| r.err())
+        .collect()
 }
